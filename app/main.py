@@ -8,6 +8,7 @@ from app.errors import BusinessError
 from app.engine import evaluate
 from app import store
 from app.archive import serialize
+from app.voyage_handler import router as voyage_router
 
 @asynccontextmanager
 async def lifespan(app):
@@ -50,3 +51,4 @@ def export(run_id:str):
     return Response(serialize(result),media_type='application/zip',headers={'Content-Disposition':f'attachment; filename="{run_id}.zip"'})
 for key in MODULES:
     app.include_router(import_module(f'app.modules.{key}.handler').router)
+app.include_router(voyage_router)

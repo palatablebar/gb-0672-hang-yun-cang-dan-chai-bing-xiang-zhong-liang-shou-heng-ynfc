@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="sheet-grid">
+  <section class="panel data-panel">
+    <h2>航次质量对照清单<sup>1</sup>
+      <small>字典版本 {{ checklist.summary.dict_version if checklist else '未生成' }}</small>
+    </h2>
+    <div class="voyage-actions">
+      <button id="build-checklist">按当前口径生成对照清单</button>
+      {% if checklist %}
+      <a class="download-link" href="/api/runs/{{ state.manifest.run_id }}/checklist/download">下载清单 CSV</a>
+      {% endif %}
+      <output id="voyage-message" aria-live="polite"></output>
+    </div>
+    {% if checklist %}
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>主单号</th><th>问题节点</th><th>来源</th><th>历史原因码</th>
+          <th>当前归类</th><th>归类方式</th><th>新旧证据</th><th>当前结论</th>
+          <th>阻断</th><th>采用依据</th>
+        </tr></thead>
+        <tbody>
+        {% for row in checklist.rows %}
+        <tr>
+          <td title="{{ row.root_label }}">{{ row.root_id }}</td>
+          <td>{{ row.node_id }}</td>
+          <td>{{ row.finding_source }}</td>
+          <td><code>{{ row.original_code }}</code><br><small>{{ row.original_label }}</small></td>
+          <td><code>{{ row.current_code }}</code><br><small>{{ row.current_label }}</small></td>
+          <td>{{ row.mapping_label }}</td>
+          <td>{{ row.evidence_consistent }}</td>
+          <td class="{% if row.current_decision=='BLOCKING' %}fail{% elif row.current_decision=='MANUAL_REVIEW' %}warn{% endif %}">{{ row.decision_label }}</td>
+          <td>{{ row.blocking }}</td>
+          <td class="basis" title="{{ row.basis }}">{{ row.basis }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="empty-hint">尚未生成清单。点击上方按钮，按当前规则口径归集本航次全部主单问题；历史旧码将随请求证据映射，无映射项保留原码并标记待人工判定。</p>
+    {% endif %}
+  </section>
+  <div class="right-column">
+    <section class="panel stamps">
+      <h2>清单摘要</h2>
+      {% if checklist %}
+      <div class="checklist-meta">
+        <div><label>对照行</label><b>{{ checklist.summary.total_rows }}</b></div>
+        <div><label>现行发现</label><b>{{ checklist.summary.current_rows }}</b></div>
+        <div><label>历史旧码</label><b>{{ checklist.summary.legacy_rows }}</b></div>
+        <div><label>保留未映射</label><b>{{ checklist.summary.retained_rows }}</b></div>
+        <div><label>仍阻断</label><b>{{ checklist.summary.blocking_rows }}</b></div>
+        <div><label>已消除</label><b>{{ checklist.summary.resolved_rows }}</b></div>
+        <div><label>待人工</label><b>{{ checklist.summary.manual_rows }}</b></div>
+      </div>
+      <p class="rule-line">规则 {{ checklist.summary.rule_version }} · 字典 {{ checklist.summary.dict_version }}</p>
+      {% else %}
+      <div class="stamp">待生成</div>
+      {% endif %}
+    </section>
+    <section class="panel">
+      <h2>跨航次对照<sup>2</sup></h2>
+      <p class="empty-hint">同一（主单·节点·历史原码）在多个航次折叠对照；同版重跑不新增条目。</p>
+      <a class="download-link" href="/api/voyage/compare?run_ids={{ state.manifest.run_id }}">查看本批对照 JSON</a>
+    </section>
+  </div>
+</div>
+<script>
+document.querySelector('#build-checklist').addEventListener('click', async () => {
+  const msg = document.querySelector('#voyage-message');
+  msg.textContent = '生成中…';
+  try {
+    const resp = await fetch('/api/runs/' + document.body.dataset.runId + '/checklist', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw Error(data.detail || '生成失败');
+    msg.textContent = data.warning ? data.warning : '清单已生成，共 ' + data.checklist.summary.total_rows + ' 行';
+    setTimeout(() => location.reload(), 400);
+  } catch (e) { msg.textContent = e.message; }
+});
+</script>
+{% endblock %}

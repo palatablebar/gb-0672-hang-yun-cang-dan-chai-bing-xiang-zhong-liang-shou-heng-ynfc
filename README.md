@@ -20,3 +20,7 @@ SQLite使用命名卷，容器重启后保留历史。要重建演示可在Compo
 源码在 `app/`，样例在 `sample_data/`，测试在 `tests/`；定义见 `docs/DATA-DICTIONARY.md`，模块和边界测试对应关系见 `docs/DEPTH.md`。输入上限2MB，属于离线复核工具。
 
 采信页支持上传或粘贴CSV。完整源字节与参数随批次持久化，跨页通过run_id读取同一结果。`POST /api/runs/{run_id}/rerun` 读取该批不可变输入快照重新计算，规则未变时批号不变。切换另一示例则创建或复用另一批次。
+
+## 航次质量对照清单
+
+`/voyage` 页面与 `POST /api/runs/{run_id}/checklist` 逐张主单生成可下载对照清单（CSV 入口 `GET /api/runs/{run_id}/checklist/download`）。每行保留历史原因码、当前归类与采用依据：旧码一对一直接改写、一对多凭历史证据拆分、字典无对应或证据不足时保留原码并记 UNMAPPED，不丢记录、不静默改名。拆并或重量结论变化后按现行口径重判为阻断/已消除/待人工。清单按 `(run_id,dict_version)` 唯一落库，同一规则版本重跑不新增对照；构建失败保留库内旧版并返回 warning。跨航次同类问题以（主单·节点·历史原码）折叠对照：`GET /api/voyage/compare?run_ids=a,b`（CSV 下载加 `/download`）。历史批次发现可在生成时通过 `legacy_findings`（node_id/code/evidence）与 `legacy_rule_version` 提交。
